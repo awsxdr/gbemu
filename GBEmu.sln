@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29009.5
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GBEmu", "GBEmu\GBEmu.csproj", "{AC29CBF7-E04E-41C5-A8D8-62A72810612C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GBEmu.Tests", "GBEmu.Tests\GBEmu.Tests.csproj", "{99F977B4-69EC-42ED-BE05-2EB98FFFC352}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AC29CBF7-E04E-41C5-A8D8-62A72810612C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC29CBF7-E04E-41C5-A8D8-62A72810612C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AC29CBF7-E04E-41C5-A8D8-62A72810612C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AC29CBF7-E04E-41C5-A8D8-62A72810612C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{99F977B4-69EC-42ED-BE05-2EB98FFFC352}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99F977B4-69EC-42ED-BE05-2EB98FFFC352}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99F977B4-69EC-42ED-BE05-2EB98FFFC352}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99F977B4-69EC-42ED-BE05-2EB98FFFC352}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D55B1434-AE10-41EF-9774-B974FA5C48C1}
+	EndGlobalSection
+EndGlobal
