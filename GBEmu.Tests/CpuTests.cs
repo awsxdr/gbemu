@@ -956,6 +956,227 @@ namespace GBEmu.Tests
             ClassUnderTest.Registers.F.Should().Be(expectedFlags);
         }
 
+        [Test]
+        [TestCase(Registers.B, 0xa0)]
+        [TestCase(Registers.C, 0xa1)]
+        [TestCase(Registers.D, 0xa2)]
+        [TestCase(Registers.E, 0xa3)]
+        [TestCase(Registers.H, 0xa4)]
+        [TestCase(Registers.L, 0xa5)]
+        [TestCase(Registers.A, 0xa7)]
+        public void And_UpdatesAccumulator(Registers register, byte opcode)
+        {
+            ClassUnderTest.Registers.A = 0b10101010;
+            SetRegister(register, 0b11110000);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be((byte) (ClassUnderTest.Registers.A & GetRegister(register)));
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0b00001111, 0b00001111, false, 0xa0)]
+        [TestCase(Registers.B, 0b11110000, 0b00001111, true, 0xa0)]
+        [TestCase(Registers.C, 0b00001111, 0b00001111, false, 0xa1)]
+        [TestCase(Registers.C, 0b11110000, 0b00001111, true, 0xa1)]
+        [TestCase(Registers.D, 0b00001111, 0b00001111, false, 0xa2)]
+        [TestCase(Registers.D, 0b11110000, 0b00001111, true, 0xa2)]
+        [TestCase(Registers.E, 0b00001111, 0b00001111, false, 0xa3)]
+        [TestCase(Registers.E, 0b11110000, 0b00001111, true, 0xa3)]
+        [TestCase(Registers.H, 0b00001111, 0b00001111, false, 0xa4)]
+        [TestCase(Registers.H, 0b11110000, 0b00001111, true, 0xa4)]
+        [TestCase(Registers.L, 0b00001111, 0b00001111, false, 0xa5)]
+        [TestCase(Registers.L, 0b11110000, 0b00001111, true, 0xa5)]
+        [TestCase(Registers.A, 0b00001111, 0b00001111, false, 0xa7)]
+        [TestCase(Registers.A, 0b00001111, 0b00000000, true, 0xa7)]
+        public void And_SetsExpectedFlags(Registers register, byte value1, byte value2, bool zero, byte opcode)
+        {
+            ClassUnderTest.Registers.A = value1;
+            SetRegister(register, value2);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte) ((zero ? 0b10000000 : 0) | 0b00100000);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void AndMemory_UpdatesAccumulator()
+        {
+            ClassUnderTest.Registers.A = 0b10101010;
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xa6);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0b11110000);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0b10100000);
+        }
+
+        [Test]
+        [TestCase(0b00001111, 0b00001111, false)]
+        [TestCase(0b11110000, 0b00001111, true)]
+        public void AndMemory_SetsExpectedFlags(byte value1, byte value2, bool zero)
+        {
+            ClassUnderTest.Registers.A = value1;
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xa6);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value2);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)((zero ? 0b10000000 : 0) | 0b00100000);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void AndImmediate_UpdatesAccumulator()
+        {
+            ClassUnderTest.Registers.A = 0b10101010;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xe6);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0b11110000);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0b10100000);
+        }
+
+        [Test]
+        [TestCase(0b00001111, 0b00001111, false)]
+        [TestCase(0b11110000, 0b00001111, true)]
+        public void AndImmediate_SetsExpectedFlags(byte value1, byte value2, bool zero)
+        {
+            ClassUnderTest.Registers.A = value1;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xe6);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(value2);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)((zero ? 0b10000000 : 0) | 0b00100000);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0xb0)]
+        [TestCase(Registers.C, 0xb1)]
+        [TestCase(Registers.D, 0xb2)]
+        [TestCase(Registers.E, 0xb3)]
+        [TestCase(Registers.H, 0xb4)]
+        [TestCase(Registers.L, 0xb5)]
+        [TestCase(Registers.A, 0xb7)]
+        public void Or_UpdatesAccumulator(Registers register, byte opcode)
+        {
+            ClassUnderTest.Registers.A = 0b10101010;
+            SetRegister(register, 0b11110000);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be((byte)(ClassUnderTest.Registers.A | GetRegister(register)));
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0b00001111, false, 0xb0)]
+        [TestCase(Registers.B, 0b00000000, true, 0xb0)]
+        [TestCase(Registers.C, 0b00001111, false, 0xb1)]
+        [TestCase(Registers.C, 0b00000000, true, 0xb1)]
+        [TestCase(Registers.D, 0b00001111, false, 0xb2)]
+        [TestCase(Registers.D, 0b00000000, true, 0xb2)]
+        [TestCase(Registers.E, 0b00001111, false, 0xb3)]
+        [TestCase(Registers.E, 0b00000000, true, 0xb3)]
+        [TestCase(Registers.H, 0b00001111, false, 0xb4)]
+        [TestCase(Registers.H, 0b00000000, true, 0xb4)]
+        [TestCase(Registers.L, 0b00001111, false, 0xb5)]
+        [TestCase(Registers.L, 0b00000000, true, 0xb5)]
+        [TestCase(Registers.A, 0b00000000, true, 0xb7)]
+        public void Or_SetsExpectedFlags(Registers register, byte value1, bool zero, byte opcode)
+        {
+            ClassUnderTest.Registers.A = value1;
+            SetRegister(register, 0);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(zero ? 0b10000000 : 0);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void OrMemory_UpdatesAccumulator()
+        {
+            ClassUnderTest.Registers.A = 0b10101010;
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xb6);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0b11110000);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0b11111010);
+        }
+
+        [Test]
+        [TestCase(0b00001111, false)]
+        [TestCase(0b00000000, true)]
+        public void OrMemory_SetsExpectedFlags(byte value, bool zero)
+        {
+            ClassUnderTest.Registers.A = value;
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xb6);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(zero ? 0b10000000 : 0);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void OrImmediate_UpdatesAccumulator()
+        {
+            ClassUnderTest.Registers.A = 0b10101010;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xf6);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0b11110000);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0b11111010);
+        }
+
+        [Test]
+        [TestCase(0b00001111, false)]
+        [TestCase(0b00000000, true)]
+        public void OrImmediate_SetsExpectedFlags(byte value, bool zero)
+        {
+            ClassUnderTest.Registers.A = value;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xf6);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(zero ? 0b10000000 : 0);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
         private byte GetRegister(Registers register) =>
             register switch
             {

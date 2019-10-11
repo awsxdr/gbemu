@@ -138,6 +138,22 @@
                 0x9d => (4, SubtractWithCarry(() => Registers.L)),
                 0x9e => (8, SubtractWithCarry(() => _bus.Read(Registers.HL))),
                 0x9f => (4, SubtractWithCarry(() => Registers.A)),
+                0xa0 => (4, And(() => Registers.B)),
+                0xa1 => (4, And(() => Registers.C)),
+                0xa2 => (4, And(() => Registers.D)),
+                0xa3 => (4, And(() => Registers.E)),
+                0xa4 => (4, And(() => Registers.H)),
+                0xa5 => (4, And(() => Registers.L)),
+                0xa6 => (4, And(() => _bus.Read(Registers.HL))),
+                0xa7 => (4, And(() => Registers.A)),
+                0xb0 => (4, Or(() => Registers.B)),
+                0xb1 => (4, Or(() => Registers.C)),
+                0xb2 => (4, Or(() => Registers.D)),
+                0xb3 => (4, Or(() => Registers.E)),
+                0xb4 => (4, Or(() => Registers.H)),
+                0xb5 => (4, Or(() => Registers.L)),
+                0xb6 => (4, Or(() => _bus.Read(Registers.HL))),
+                0xb7 => (4, Or(() => Registers.A)),
                 0xc1 => (12, Pop(() => Registers.BC)),
                 0xc5 => (16, Push(() => Registers.BC)),
                 0xc6 => (8, Add(() => _bus.Read(Registers.PC++))),
@@ -150,11 +166,13 @@
                 0xe1 => (12, Pop(() => Registers.HL)),
                 0xe2 => (8, LoadAccumulatorIntoIo(() => Registers.C)),
                 0xe5 => (16, Push(() => Registers.HL)),
+                0xe6 => (4, And(() => _bus.Read(Registers.PC++))),
                 0xea => (16, LoadAccumulatorIntoImmediatePointer),
                 0xf0 => (12, LoadIoIntoAccumulator(() => _bus.Read(Registers.PC++))),
                 0xf1 => (12, Pop(() => Registers.AF)),
                 0xf2 => (8, LoadIoIntoAccumulator(() => Registers.C)),
                 0xf5 => (16, Push(() => Registers.AF)),
+                0xf6 => (4, Or(() => _bus.Read(Registers.PC++))),
                 0xf8 => (12, Load16IntoRegister(() => Registers.HL, () => (ushort)(Registers.SP + (sbyte)_bus.Read(Registers.PC++)))),
                 0xf9 => (8, Load16IntoRegister(() => Registers.SP, () => Registers.HL)),
                 0xfa => (16, LoadImmediatePointerIntoAccumulator),
@@ -247,6 +265,26 @@
 
         private Action SubtractWithCarry(Func<byte> register) =>
             Subtract(() => (byte)(register() + (GetFlag(Flags.Carry) ? 1 : 0)));
+
+        private Action And(Func<byte> register) => () =>
+        {
+            Registers.A &= register();
+
+            UpdateFlag(Flags.Zero, Registers.A == 0);
+            UnsetFlag(Flags.Subtract);
+            SetFlag(Flags.HalfCarry);
+            UnsetFlag(Flags.Carry);
+        };
+
+        private Action Or(Func<byte> register) => () =>
+        {
+            Registers.A |= register();
+
+            UpdateFlag(Flags.Zero, Registers.A == 0);
+            UnsetFlag(Flags.Subtract);
+            UnsetFlag(Flags.HalfCarry);
+            UnsetFlag(Flags.Carry);
+        };
 
         private ushort ReadImmediate16() =>
             (ushort) (_bus.Read(Registers.PC++) | (_bus.Read(Registers.PC++) << 8));
