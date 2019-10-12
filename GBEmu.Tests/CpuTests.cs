@@ -2,6 +2,7 @@ namespace GBEmu.Tests
 {
     using System;
     using System.Linq;
+    using System.Net.Sockets;
     using FluentAssertions;
     using Moq;
     using NUnit.Framework;
@@ -1563,11 +1564,13 @@ namespace GBEmu.Tests
         {
             ClassUnderTest.Registers.HL = 0x1000;
             SetRegister(register, 42);
-            var expectedResult = ClassUnderTest.Registers.HL + GetRegister(register);
+            var expectedResult = (ushort)(ClassUnderTest.Registers.HL + GetRegister(register));
 
             GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
 
-            ClassUnderTest.Registers.HL.Should().Be(expectedResult);
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.HL).Should().Be(expectedResult);
         }
 
         [Test]
@@ -1578,8 +1581,8 @@ namespace GBEmu.Tests
         [TestCase(Register16s.DE, 0x19, (ushort)0x1fff, (ushort)0x0001, true, false)]
         [TestCase(Register16s.DE, 0x19, (ushort)0xffff, (ushort)0x0001, true, true)]
         [TestCase(Register16s.HL, 0x29, (ushort)0x1234, (ushort)0x0001, false, false)]
-        [TestCase(Register16s.HL, 0x29, (ushort)0x1fff, (ushort)0x0001, true, false)]
-        [TestCase(Register16s.HL, 0x29, (ushort)0xffff, (ushort)0x0001, true, true)]
+        [TestCase(Register16s.HL, 0x29, (ushort)0x1fff, (ushort)0x0800, true, false)]
+        [TestCase(Register16s.HL, 0x29, (ushort)0xffff, (ushort)0x8800, true, true)]
         [TestCase(Register16s.SP, 0x39, (ushort)0x1234, (ushort)0x0001, false, false)]
         [TestCase(Register16s.SP, 0x39, (ushort)0x1fff, (ushort)0x0001, true, false)]
         [TestCase(Register16s.SP, 0x39, (ushort)0xffff, (ushort)0x0001, true, true)]
@@ -1595,8 +1598,1291 @@ namespace GBEmu.Tests
                 (halfCarry ? 0b00100000 : 0)
                 | (carry ? 0b00010000 : 0));
 
+            ClassUnderTest.Next();
+
             ClassUnderTest.Registers.F.Should().Be(expectedFlags);
         }
+
+        [Test]
+        public void AddSP_SetsValue()
+        {
+            ClassUnderTest.Registers.SP = 0x1200;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xe8);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x34);
+
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.SP).Should().Be(0x1234);
+        }
+
+        [Test]
+        [TestCase(Register16s.BC, 0x03)]
+        [TestCase(Register16s.DE, 0x13)]
+        [TestCase(Register16s.HL, 0x23)]
+        [TestCase(Register16s.SP, 0x33)]
+        public void Increment16_SetsValue(Register16s register, byte opcode)
+        {
+            SetRegister(register, 0x1233);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0x1234);
+        }
+
+        [Test]
+        [TestCase(Register16s.BC, 0x0b)]
+        [TestCase(Register16s.DE, 0x1b)]
+        [TestCase(Register16s.HL, 0x2b)]
+        [TestCase(Register16s.SP, 0x3b)]
+        public void Decrement16_SetsValue(Register16s register, byte opcode)
+        {
+            SetRegister(register, 0x1235);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0x1234);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x30)]
+        [TestCase(Registers.C, 0x31)]
+        [TestCase(Registers.D, 0x32)]
+        [TestCase(Registers.E, 0x33)]
+        [TestCase(Registers.H, 0x34)]
+        [TestCase(Registers.L, 0x35)]
+        [TestCase(Registers.A, 0x37)]
+        public void Swap_SetsValue(Registers register, byte opcode)
+        {
+            SetRegister(register, 0x24);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0x42);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x30, 0x01, false)]
+        [TestCase(Registers.B, 0x30, 0x00, true)]
+        [TestCase(Registers.C, 0x31, 0x01, false)]
+        [TestCase(Registers.C, 0x31, 0x00, true)]
+        [TestCase(Registers.D, 0x32, 0x01, false)]
+        [TestCase(Registers.D, 0x32, 0x00, true)]
+        [TestCase(Registers.E, 0x33, 0x01, false)]
+        [TestCase(Registers.E, 0x33, 0x00, true)]
+        [TestCase(Registers.H, 0x34, 0x01, false)]
+        [TestCase(Registers.H, 0x34, 0x00, true)]
+        [TestCase(Registers.L, 0x35, 0x01, false)]
+        [TestCase(Registers.L, 0x35, 0x00, true)]
+        [TestCase(Registers.A, 0x37, 0x01, false)]
+        [TestCase(Registers.A, 0x37, 0x00, true)]
+        public void Swap_SetsExpectedFlags(Registers register, byte opcode, byte value, bool zero)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(zero ? 0b10000000 : 0);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void SwapMemory_SetsValue()
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x36);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0x24);
+
+            ClassUnderTest.Next();
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, 0x42), Times.Once);
+        }
+
+        [Test]
+        [TestCase(0x01, false)]
+        [TestCase(0x00, true)]
+        public void SwapMemory_SetsExpectedFlags(byte value, bool zero)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x36);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(zero ? 0b10000000 : 0);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void DecimalAdjustAccumulator_SetsValue()
+        {
+            ClassUnderTest.Registers.A = 42;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x27);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0x42);
+        }
+
+        [Test]
+        [TestCase(42, false)]
+        [TestCase(0, true)]
+        [TestCase(100, true)]
+        public void DecimalAdjustAccumulator_SetsExpectedFlags(byte value, bool zero)
+        {
+            ClassUnderTest.Registers.A = value;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x27);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(zero ? 0b10000000 : 0);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void ComplementAccumulator_SetsValue()
+        {
+            ClassUnderTest.Registers.A = 0b10101010;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x2f);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0b01010101);
+        }
+
+        [Test]
+        public void ComplementAccumulator_SetsExpectedRegisters()
+        {
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x2f);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.F.Should().Be(0b01100000);
+        }
+
+        [Test]
+        [TestCase(true)]
+        [TestCase(false)]
+        public void ComplementCarryFlag_SetsExpectedRegisterValue(bool startValue)
+        {
+            ClassUnderTest.Registers.F = (byte) ((startValue ? 0b00010000 : 0) | 0b01100000);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x3f);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(startValue ? 0 : 0b00010000);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void SetCarryFlag_SetsFlag()
+        {
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x37);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.F.Should().Be(0b00010000);
+        }
+
+        [Test]
+        public void RotateLeftToCarryA_SetsAccumulator()
+        {
+            ClassUnderTest.Registers.A = 0b10010010;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x07);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0b00100101);
+        }
+
+        [Test]
+        [TestCase(0b10010010, false, true)]
+        [TestCase(0b00000000, true, false)]
+        public void RotateLeftToCarryA_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.A = value;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x07);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte) (
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void RotateLeftThroughCarryA_SetsAccumulator()
+        {
+            ClassUnderTest.Registers.A = 0b10010010;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x17);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0b00100100);
+        }
+
+        [Test]
+        [TestCase(0b10010010, false, true)]
+        [TestCase(0b10000000, true, true)]
+        [TestCase(0b00000000, true, false)]
+        public void RotateLeftThroughCarryA_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.A = value;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x17);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void RotateRightToCarryA_SetsAccumulator()
+        {
+            ClassUnderTest.Registers.A = 0b00100101;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x0f);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0b10010010);
+        }
+
+        [Test]
+        [TestCase(0b00100101, false, true)]
+        [TestCase(0b00000000, true, false)]
+        public void RotateRightToCarryA_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.A = value;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x0f);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void RotateRightThroughCarryA_SetsAccumulator()
+        {
+            ClassUnderTest.Registers.A = 0b00100101;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x1f);
+
+            ClassUnderTest.Next();
+
+            ClassUnderTest.Registers.A.Should().Be(0b00010010);
+        }
+
+        [Test]
+        [TestCase(0b00100101, false, true)]
+        [TestCase(0b00000001, true, true)]
+        [TestCase(0b00000000, true, false)]
+        public void RotateRightThroughCarryA_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.A = value;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x1f);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x00)]
+        [TestCase(Registers.C, 0x01)]
+        [TestCase(Registers.D, 0x02)]
+        [TestCase(Registers.E, 0x03)]
+        [TestCase(Registers.H, 0x04)]
+        [TestCase(Registers.L, 0x05)]
+        [TestCase(Registers.A, 0x07)]
+        public void RotateLeftToCarry_SetsRegister(Registers register, byte opcode)
+        {
+            SetRegister(register, 0b10010010);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0b00100101);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x00, 0b10010010, false, true)]
+        [TestCase(Registers.B, 0x00, 0b00000000, true, false)]
+        [TestCase(Registers.C, 0x01, 0b10010010, false, true)]
+        [TestCase(Registers.C, 0x01, 0b00000000, true, false)]
+        [TestCase(Registers.D, 0x02, 0b10010010, false, true)]
+        [TestCase(Registers.D, 0x02, 0b00000000, true, false)]
+        [TestCase(Registers.E, 0x03, 0b10010010, false, true)]
+        [TestCase(Registers.E, 0x03, 0b00000000, true, false)]
+        [TestCase(Registers.H, 0x04, 0b10010010, false, true)]
+        [TestCase(Registers.H, 0x04, 0b00000000, true, false)]
+        [TestCase(Registers.L, 0x05, 0b10010010, false, true)]
+        [TestCase(Registers.L, 0x05, 0b00000000, true, false)]
+        [TestCase(Registers.A, 0x07, 0b10010010, false, true)]
+        [TestCase(Registers.A, 0x07, 0b00000000, true, false)]
+        public void RotateLeftToCarry_SetsExpectedFlags(Registers register, byte opcode, byte value, bool zero, bool carry)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void RotateLeftToCarryMemory_SetsMemory()
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x06);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0b10010010);
+
+            ClassUnderTest.Next();
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, 0b00100101), Times.Once);
+        }
+
+        [Test]
+        [TestCase(0b10010010, false, true)]
+        [TestCase(0b00000000, true, false)]
+        public void RotateLeftToCarryMemory_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x06);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x10)]
+        [TestCase(Registers.C, 0x11)]
+        [TestCase(Registers.D, 0x12)]
+        [TestCase(Registers.E, 0x13)]
+        [TestCase(Registers.H, 0x14)]
+        [TestCase(Registers.L, 0x15)]
+        [TestCase(Registers.A, 0x17)]
+        public void RotateLeftThroughCarry_SetsRegister(Registers register, byte opcode)
+        {
+            SetRegister(register, 0b10010010);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0b00100100);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x10, 0b10010010, false, true)]
+        [TestCase(Registers.B, 0x10, 0b10000000, true, true)]
+        [TestCase(Registers.B, 0x10, 0b00000000, true, false)]
+        [TestCase(Registers.C, 0x11, 0b10010010, false, true)]
+        [TestCase(Registers.C, 0x11, 0b10000000, true, true)]
+        [TestCase(Registers.C, 0x11, 0b00000000, true, false)]
+        [TestCase(Registers.D, 0x12, 0b10010010, false, true)]
+        [TestCase(Registers.D, 0x12, 0b10000000, true, true)]
+        [TestCase(Registers.D, 0x12, 0b00000000, true, false)]
+        [TestCase(Registers.E, 0x13, 0b10010010, false, true)]
+        [TestCase(Registers.E, 0x13, 0b10000000, true, true)]
+        [TestCase(Registers.E, 0x13, 0b00000000, true, false)]
+        [TestCase(Registers.H, 0x14, 0b10010010, false, true)]
+        [TestCase(Registers.H, 0x14, 0b10000000, true, true)]
+        [TestCase(Registers.H, 0x14, 0b00000000, true, false)]
+        [TestCase(Registers.L, 0x15, 0b10010010, false, true)]
+        [TestCase(Registers.L, 0x15, 0b10000000, true, true)]
+        [TestCase(Registers.L, 0x15, 0b00000000, true, false)]
+        [TestCase(Registers.A, 0x17, 0b10010010, false, true)]
+        [TestCase(Registers.A, 0x17, 0b10000000, true, true)]
+        [TestCase(Registers.A, 0x17, 0b00000000, true, false)]
+        public void RotateLeftThroughCarry_SetsExpectedFlags(Registers register, byte opcode, byte value, bool zero, bool carry)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void RotateLeftThroughCarryMemory_SetsMemory()
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x16);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0b10010010);
+
+            ClassUnderTest.Next();
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, 0b00100100), Times.Once);
+        }
+
+        [Test]
+        [TestCase(0b10010010, false, true)]
+        [TestCase(0b10000000, true, true)]
+        [TestCase(0b00000000, true, false)]
+        public void RotateLeftThroughCarryMemory_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x16);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x08)]
+        [TestCase(Registers.C, 0x09)]
+        [TestCase(Registers.D, 0x0a)]
+        [TestCase(Registers.E, 0x0b)]
+        [TestCase(Registers.H, 0x0c)]
+        [TestCase(Registers.L, 0x0d)]
+        [TestCase(Registers.A, 0x0f)]
+        public void RotateRightToCarry_SetsRegister(Registers register, byte opcode)
+        {
+            SetRegister(register, 0b00100101);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0b10010010);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x08, 0b00100101, false, true)]
+        [TestCase(Registers.B, 0x08, 0b00000000, true, false)]
+        [TestCase(Registers.C, 0x09, 0b00100101, false, true)]
+        [TestCase(Registers.C, 0x09, 0b00000000, true, false)]
+        [TestCase(Registers.D, 0x0a, 0b00100101, false, true)]
+        [TestCase(Registers.D, 0x0a, 0b00000000, true, false)]
+        [TestCase(Registers.E, 0x0b, 0b00100101, false, true)]
+        [TestCase(Registers.E, 0x0b, 0b00000000, true, false)]
+        [TestCase(Registers.H, 0x0c, 0b00100101, false, true)]
+        [TestCase(Registers.H, 0x0c, 0b00000000, true, false)]
+        [TestCase(Registers.L, 0x0d, 0b00100101, false, true)]
+        [TestCase(Registers.L, 0x0d, 0b00000000, true, false)]
+        [TestCase(Registers.A, 0x0f, 0b00100101, false, true)]
+        [TestCase(Registers.A, 0x0f, 0b00000000, true, false)]
+        public void RotateRightToCarry_SetsExpectedFlags(Registers register, byte opcode, byte value, bool zero, bool carry)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void RotateRightToCarryMemory_SetsMemory()
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x0e);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0b00100101);
+
+            ClassUnderTest.Next();
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, 0b10010010), Times.Once);
+        }
+
+        [Test]
+        [TestCase(0b00100101, false, true)]
+        [TestCase(0b00000000, true, false)]
+        public void RotateRightToCarryMemory_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x0e);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x18)]
+        [TestCase(Registers.C, 0x19)]
+        [TestCase(Registers.D, 0x1a)]
+        [TestCase(Registers.E, 0x1b)]
+        [TestCase(Registers.H, 0x1c)]
+        [TestCase(Registers.L, 0x1d)]
+        [TestCase(Registers.A, 0x1f)]
+        public void RotateRightThroughCarry_SetsRegister(Registers register, byte opcode)
+        {
+            SetRegister(register, 0b00100101);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0b00010010);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x18, 0b00100101, false, true)]
+        [TestCase(Registers.B, 0x18, 0b00000001, true, true)]
+        [TestCase(Registers.B, 0x18, 0b00000000, true, false)]
+        [TestCase(Registers.C, 0x19, 0b00100101, false, true)]
+        [TestCase(Registers.C, 0x19, 0b00000001, true, true)]
+        [TestCase(Registers.C, 0x19, 0b00000000, true, false)]
+        [TestCase(Registers.D, 0x1a, 0b00100101, false, true)]
+        [TestCase(Registers.D, 0x1a, 0b00000001, true, true)]
+        [TestCase(Registers.D, 0x1a, 0b00000000, true, false)]
+        [TestCase(Registers.E, 0x1b, 0b00100101, false, true)]
+        [TestCase(Registers.E, 0x1b, 0b00000001, true, true)]
+        [TestCase(Registers.E, 0x1b, 0b00000000, true, false)]
+        [TestCase(Registers.H, 0x1c, 0b00100101, false, true)]
+        [TestCase(Registers.H, 0x1c, 0b00000001, true, true)]
+        [TestCase(Registers.H, 0x1c, 0b00000000, true, false)]
+        [TestCase(Registers.L, 0x1d, 0b00100101, false, true)]
+        [TestCase(Registers.L, 0x1d, 0b00000001, true, true)]
+        [TestCase(Registers.L, 0x1d, 0b00000000, true, false)]
+        [TestCase(Registers.A, 0x1f, 0b00100101, false, true)]
+        [TestCase(Registers.A, 0x1f, 0b00000001, true, true)]
+        [TestCase(Registers.A, 0x1f, 0b00000000, true, false)]
+        public void RotateRightThroughCarry_SetsExpectedFlags(Registers register, byte opcode, byte value, bool zero, bool carry)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void RotateRightThroughCarryMemory_SetsMemory()
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x1e);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0b00100101);
+
+            ClassUnderTest.Next();
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, 0b00010010), Times.Once);
+        }
+
+        [Test]
+        [TestCase(0b00100101, false, true)]
+        [TestCase(0b00000001, true, true)]
+        [TestCase(0b00000000, true, false)]
+        public void RotateRightThroughCarryMemory_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x1e);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x20)]
+        [TestCase(Registers.C, 0x21)]
+        [TestCase(Registers.D, 0x22)]
+        [TestCase(Registers.E, 0x23)]
+        [TestCase(Registers.H, 0x24)]
+        [TestCase(Registers.L, 0x25)]
+        [TestCase(Registers.A, 0x27)]
+        public void ShiftLeft_SetsRegister(Registers register, byte opcode)
+        {
+            SetRegister(register, 0b10010010);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0b00100100);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x20, 0b10010010, false, true)]
+        [TestCase(Registers.B, 0x20, 0b00000000, true, false)]
+        [TestCase(Registers.C, 0x21, 0b10010010, false, true)]
+        [TestCase(Registers.C, 0x21, 0b00000000, true, false)]
+        [TestCase(Registers.D, 0x22, 0b10010010, false, true)]
+        [TestCase(Registers.D, 0x22, 0b00000000, true, false)]
+        [TestCase(Registers.E, 0x23, 0b10010010, false, true)]
+        [TestCase(Registers.E, 0x23, 0b00000000, true, false)]
+        [TestCase(Registers.H, 0x24, 0b10010010, false, true)]
+        [TestCase(Registers.H, 0x24, 0b00000000, true, false)]
+        [TestCase(Registers.L, 0x25, 0b10010010, false, true)]
+        [TestCase(Registers.L, 0x25, 0b00000000, true, false)]
+        [TestCase(Registers.A, 0x27, 0b10010010, false, true)]
+        [TestCase(Registers.A, 0x27, 0b00000000, true, false)]
+        public void ShiftLeft_SetsExpectedFlags(Registers register, byte opcode, byte value, bool zero, bool carry)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void ShiftLeftMemory_SetsMemory()
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x26);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0b10010010);
+
+            ClassUnderTest.Next();
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, 0b00100100), Times.Once);
+        }
+
+        [Test]
+        [TestCase(0b10010010, false, true)]
+        [TestCase(0b00000000, true, false)]
+        public void ShiftLeft_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x06);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x28)]
+        [TestCase(Registers.C, 0x29)]
+        [TestCase(Registers.D, 0x2a)]
+        [TestCase(Registers.E, 0x2b)]
+        [TestCase(Registers.H, 0x2c)]
+        [TestCase(Registers.L, 0x2d)]
+        [TestCase(Registers.A, 0x2f)]
+        public void ShiftRight_SetsRegister(Registers register, byte opcode)
+        {
+            SetRegister(register, 0b10100100);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0b11010010);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x28, 0b00100101, false, true)]
+        [TestCase(Registers.B, 0x28, 0b00000000, true, false)]
+        [TestCase(Registers.C, 0x29, 0b00100101, false, true)]
+        [TestCase(Registers.C, 0x29, 0b00000000, true, false)]
+        [TestCase(Registers.D, 0x2a, 0b00100101, false, true)]
+        [TestCase(Registers.D, 0x2a, 0b00000000, true, false)]
+        [TestCase(Registers.E, 0x2b, 0b00100101, false, true)]
+        [TestCase(Registers.E, 0x2b, 0b00000000, true, false)]
+        [TestCase(Registers.H, 0x2c, 0b00100101, false, true)]
+        [TestCase(Registers.H, 0x2c, 0b00000000, true, false)]
+        [TestCase(Registers.L, 0x2d, 0b00100101, false, true)]
+        [TestCase(Registers.L, 0x2d, 0b00000000, true, false)]
+        [TestCase(Registers.A, 0x2f, 0b00100101, false, true)]
+        [TestCase(Registers.A, 0x2f, 0b00000000, true, false)]
+        public void ShiftRight_SetsExpectedFlags(Registers register, byte opcode, byte value, bool zero, bool carry)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void ShiftRightMemory_SetsMemory()
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x2e);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0b10100101);
+
+            ClassUnderTest.Next();
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, 0b11010010), Times.Once);
+        }
+
+        [Test]
+        [TestCase(0b00100101, false, true)]
+        [TestCase(0b00000000, true, false)]
+        public void ShiftRightMemory_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x2e);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x38)]
+        [TestCase(Registers.C, 0x39)]
+        [TestCase(Registers.D, 0x3a)]
+        [TestCase(Registers.E, 0x3b)]
+        [TestCase(Registers.H, 0x3c)]
+        [TestCase(Registers.L, 0x3d)]
+        [TestCase(Registers.A, 0x3f)]
+        public void ShiftRightZero_SetsRegister(Registers register, byte opcode)
+        {
+            SetRegister(register, 0b10100100);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0b01010010);
+        }
+
+        [Test]
+        [TestCase(Registers.B, 0x38, 0b00100101, false, true)]
+        [TestCase(Registers.B, 0x38, 0b00000000, true, false)]
+        [TestCase(Registers.C, 0x39, 0b00100101, false, true)]
+        [TestCase(Registers.C, 0x39, 0b00000000, true, false)]
+        [TestCase(Registers.D, 0x3a, 0b00100101, false, true)]
+        [TestCase(Registers.D, 0x3a, 0b00000000, true, false)]
+        [TestCase(Registers.E, 0x3b, 0b00100101, false, true)]
+        [TestCase(Registers.E, 0x3b, 0b00000000, true, false)]
+        [TestCase(Registers.H, 0x3c, 0b00100101, false, true)]
+        [TestCase(Registers.H, 0x3c, 0b00000000, true, false)]
+        [TestCase(Registers.L, 0x3d, 0b00100101, false, true)]
+        [TestCase(Registers.L, 0x3d, 0b00000000, true, false)]
+        [TestCase(Registers.A, 0x3f, 0b00100101, false, true)]
+        [TestCase(Registers.A, 0x3f, 0b00000000, true, false)]
+        public void ShiftRightZero_SetsExpectedFlags(Registers register, byte opcode, byte value, bool zero, bool carry)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        public void ShiftRightZeroMemory_SetsMemory()
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x3e);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(0b10100101);
+
+            ClassUnderTest.Next();
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, 0b01010010), Times.Once);
+        }
+
+        [Test]
+        [TestCase(0b00100101, false, true)]
+        [TestCase(0b00000000, true, false)]
+        public void ShiftRightZeroMemory_SetsExpectedFlags(byte value, bool zero, bool carry)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x3e);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)(
+                (zero ? 0b10000000 : 0)
+                | (carry ? 0b00010000 : 0));
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCaseSource(nameof(BitTestsTestCaseSource))]
+        public void CheckBit_SetsExpectedFlags(Registers register, byte opcodeOffset, byte bitOffset, byte value, bool zero)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns((byte)(0x40 + opcodeOffset));
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte) ((zero ? 0b10000000 : 0) | 0b00100000);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCaseSource(nameof(BitMemoryTestsTestCaseSource))]
+        public void CheckMemoryBit_SetsExpectedFlags(byte bitOffset, byte value, bool zero)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x46);
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            var expectedFlags = (byte)((zero ? 0b10000000 : 0) | 0b00100000);
+
+            ClassUnderTest.Registers.F.Should().Be(expectedFlags);
+        }
+
+        [Test]
+        [TestCaseSource(nameof(BitTestsTestCaseSource))]
+        public void SetBit_SetsValue(Registers register, byte opcodeOffset, byte bitOffset, byte value, bool zero)
+        {
+            SetRegister(register, value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns((byte)(0xc0 + opcodeOffset));
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be((byte) (value | (1 << bitOffset)));
+        }
+
+        [Test]
+        [TestCaseSource(nameof(BitMemoryTestsTestCaseSource))]
+        public void SetMemoryBit_SetsValue(byte bitOffset, byte value, bool zero)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0xc6);
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
+
+            ClassUnderTest.Next();
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, (byte) (value | (1 << bitOffset))), Times.Once);
+        }
+
+        [Test]
+        [TestCaseSource(nameof(BitTestsTestCaseSource))]
+        public void ResetBit_SetsValue(Registers register, byte opcodeOffset, byte bitOffset, byte value, bool _)
+        {
+            SetRegister(register, (byte)~value);
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns((byte)(0x80 + opcodeOffset));
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+
+            ClassUnderTest.Next();
+
+            var expectedValue = (byte)(~value & ~(1 << bitOffset));
+
+            GetRegister(register).Should().Be(expectedValue);
+        }
+
+        [Test]
+        [TestCaseSource(nameof(BitMemoryTestsTestCaseSource))]
+        public void ResetMemoryBit_SetsValue(byte bitOffset, byte value, bool _)
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x86);
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+            GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns((byte)~value);
+
+            ClassUnderTest.Next();
+
+            var expectedValue = (byte)(~value & ~(1 << bitOffset));
+
+            GetMock<IBus>().Verify(m => m.Write(0x1234, expectedValue), Times.Once);
+        }
+
+        [Test]
+        public void JumpAbsolute_SetsExpectedProgramCounter()
+        {
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xc3);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x34);
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(0x12);
+
+            ClassUnderTest.Next();
+
+            ((ushort) ClassUnderTest.Registers.PC).Should().Be(0x1234);
+        }
+
+        [Test]
+        [TestCase(Flags.Zero, 0xc2, false, true)]
+        [TestCase(Flags.Zero, 0xc2, true, false)]
+        [TestCase(Flags.Zero, 0xca, true, true)]
+        [TestCase(Flags.Zero, 0xca, false, false)]
+        [TestCase(Flags.Carry, 0xd2, false, true)]
+        [TestCase(Flags.Carry, 0xd2, true, false)]
+        [TestCase(Flags.Carry, 0xda, true, true)]
+        [TestCase(Flags.Carry, 0xda, false, false)]
+        public void JumpConditionalAbsolute_JumpsWhenExpected(Flags flag, byte opcode, bool flagValue, bool shouldJump)
+        {
+            ClassUnderTest.Registers.F = (byte)(flag switch {
+                Flags.Zero when flagValue => 0b10000000,
+                Flags.Carry when flagValue => 0b00010000,
+                _ => 0
+            });
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x34);
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(0x12);
+
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.PC).Should().Be((ushort)(shouldJump ? 0x1234 : 0x103));
+        }
+
+        [Test]
+        public void JumpAbsoluteHL_SetsExpectedProgramCounter()
+        {
+            ClassUnderTest.Registers.HL = 0x1234;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xe9);
+
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.PC).Should().Be(0x1234);
+        }
+
+        [Test]
+        [TestCase(0x12, (ushort)0x114)]
+        [TestCase(0xf2, (ushort)0xf4)]
+        public void JumpRelative_SetsExpectedProgramCounter(byte jumpValue, ushort expectedAddress)
+        {
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0x18);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(jumpValue);
+
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.PC).Should().Be(expectedAddress);
+        }
+
+        [Test]
+        [TestCase(Flags.Zero, 0x20, false, true)]
+        [TestCase(Flags.Zero, 0x20, true, false)]
+        [TestCase(Flags.Zero, 0x28, true, true)]
+        [TestCase(Flags.Zero, 0x28, false, false)]
+        [TestCase(Flags.Carry, 0x30, false, true)]
+        [TestCase(Flags.Carry, 0x30, true, false)]
+        [TestCase(Flags.Carry, 0x38, true, true)]
+        [TestCase(Flags.Carry, 0x38, false, false)]
+        public void JumpConditionalRelative_JumpsWhenExpected(Flags flag, byte opcode, bool flagValue, bool shouldJump)
+        {
+            ClassUnderTest.Registers.F = (byte)(flag switch
+                {
+                Flags.Zero when flagValue => 0b10000000,
+                Flags.Carry when flagValue => 0b00010000,
+                _ => 0
+                });
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x10);
+
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.PC).Should().Be((ushort)(shouldJump ? 0x112 : 0x102));
+        }
+
+        [Test]
+        [TestCase(Flags.Zero, 0x20, false, 0x12, (ushort) 0x114)]
+        [TestCase(Flags.Zero, 0x20, false, 0xf2, (ushort)0xf4)]
+        [TestCase(Flags.Zero, 0x28, true, 0x12, (ushort)0x114)]
+        [TestCase(Flags.Zero, 0x28, true, 0xf2, (ushort)0xf4)]
+        [TestCase(Flags.Carry, 0x30, false, 0x12, (ushort)0x114)]
+        [TestCase(Flags.Carry, 0x30, false, 0xf2, (ushort)0xf4)]
+        [TestCase(Flags.Carry, 0x38, true, 0x12, (ushort)0x114)]
+        [TestCase(Flags.Carry, 0x38, true, 0xf2, (ushort)0xf4)]
+        public void JumpConditionalRelative_JumpsToExpectedAddress(Flags flag, byte opcode, bool flagValue, byte jumpValue, ushort expectedAddress)
+        {
+            ClassUnderTest.Registers.F = (byte)(flag switch
+                {
+                Flags.Zero when flagValue => 0b10000000,
+                Flags.Carry when flagValue => 0b00010000,
+                _ => 0
+                });
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(jumpValue);
+
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.PC).Should().Be(expectedAddress);
+        }
+
+        [Test]
+        public void Call_SetsExpectedProgramCounter()
+        {
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcd);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x34);
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(0x12);
+
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.PC).Should().Be(0x1234);
+        }
+
+        [Test]
+        public void Call_PushesCurrentProgramCounter()
+        {
+            ClassUnderTest.Registers.SP = 0xff02;
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcd);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x34);
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(0x12);
+
+            ClassUnderTest.Next();
+
+            ((ushort) ClassUnderTest.Registers.SP).Should().Be(0xff00);
+            GetMock<IBus>().Verify(m => m.Write(0xff02, 0x03), Times.Once);
+            GetMock<IBus>().Verify(m => m.Write(0xff01, 0x01), Times.Once);
+        }
+
+        [Test]
+        [TestCase(Flags.Zero, 0xc4, false, true)]
+        [TestCase(Flags.Zero, 0xc4, true, false)]
+        [TestCase(Flags.Zero, 0xcc, true, true)]
+        [TestCase(Flags.Zero, 0xcc, false, false)]
+        [TestCase(Flags.Carry, 0xd4, false, true)]
+        [TestCase(Flags.Carry, 0xd4, true, false)]
+        [TestCase(Flags.Carry, 0xdc, true, true)]
+        [TestCase(Flags.Carry, 0xdc, false, false)]
+        public void CallConditional_JumpsWhenExpected(Flags flag, byte opcode, bool flagValue, bool shouldJump)
+        {
+            ClassUnderTest.Registers.F = (byte)(flag switch
+                {
+                Flags.Zero when flagValue => 0b10000000,
+                Flags.Carry when flagValue => 0b00010000,
+                _ => 0
+                });
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x34);
+            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(0x12);
+
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.PC).Should().Be((ushort)(shouldJump ? 0x1234 : 0x103));
+        }
+
+        [Test]
+        [TestCase(0xc7, 0x00)]
+        [TestCase(0xcf, 0x08)]
+        [TestCase(0xd7, 0x10)]
+        [TestCase(0xdf, 0x18)]
+        [TestCase(0xe7, 0x20)]
+        [TestCase(0xef, 0x28)]
+        [TestCase(0xf7, 0x30)]
+        [TestCase(0xff, 0x38)]
+        public void Restart_JumpsToExpectedAddress(byte opcode, byte expectedOffset)
+        {
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+
+            ClassUnderTest.Next();
+
+            ((ushort) ClassUnderTest.Registers.PC).Should().Be(expectedOffset);
+        }
+
+        [Test]
+        public void Return_JumpsToExpectedAddress()
+        {
+            ClassUnderTest.Registers.SP = 0xff00;
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xc9);
+            GetMock<IBus>().Setup(m => m.Read(0xff00)).Returns(0x34);
+            GetMock<IBus>().Setup(m => m.Read(0xff01)).Returns(0x12);
+
+            ClassUnderTest.Next();
+
+            ((ushort) ClassUnderTest.Registers.PC).Should().Be(0x1234);
+        }
+
+        [Test]
+        [TestCase(Flags.Zero, 0xc0, false, true)]
+        [TestCase(Flags.Zero, 0xc0, true, false)]
+        [TestCase(Flags.Zero, 0xc8, true, true)]
+        [TestCase(Flags.Zero, 0xc8, false, false)]
+        [TestCase(Flags.Carry, 0xd0, false, true)]
+        [TestCase(Flags.Carry, 0xd0, true, false)]
+        [TestCase(Flags.Carry, 0xd8, true, true)]
+        [TestCase(Flags.Carry, 0xd8, false, false)]
+        public void ReturnConditional_JumpsWhenExpected(Flags flag, byte opcode, bool flagValue, bool shouldJump)
+        {
+            ClassUnderTest.Registers.SP = 0xff00;
+            ClassUnderTest.Registers.F = (byte)(flag switch
+                {
+                Flags.Zero when flagValue => 0b10000000,
+                Flags.Carry when flagValue => 0b00010000,
+                _ => 0
+                });
+
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
+            GetMock<IBus>().Setup(m => m.Read(0xff00)).Returns(0x34);
+            GetMock<IBus>().Setup(m => m.Read(0xff01)).Returns(0x12);
+
+            ClassUnderTest.Next();
+
+            ((ushort)ClassUnderTest.Registers.PC).Should().Be((ushort)(shouldJump ? 0x1234 : 0x101));
+        }
+
+        public static object[] BitTestsTestCaseSource() =>
+            new[] {Registers.B, Registers.C, Registers.D, Registers.E, Registers.H, Registers.L, Registers.A,  Registers.A}
+                .SelectMany((x, i) => Enumerable.Range(0, 8).Select(o => new { Register = x, OpcodeOffset = (byte)i, BitOffset = (byte)o}))
+                .Where(x => x.OpcodeOffset != 6) // These are memory operations
+                .SelectMany(x => Enumerable.Range(0, 1).Select(i => new { x.Register, x.BitOffset, x.OpcodeOffset, Value = (byte)(0 - i), Zero = i == 0}))
+                .Select(x => new object[] { x.Register, x.OpcodeOffset, x.BitOffset, x.Value, x.Zero })
+                .ToArray<object>();
+
+        public static object[] BitMemoryTestsTestCaseSource() =>
+            Enumerable.Range(0, 8)
+                .Select(x => new { BitOffset = (byte)x })
+                .SelectMany(x => Enumerable.Range(0, 1).Select(i => new { x.BitOffset, Value = (byte)(0 - i), Zero = i == 0 }))
+                .Select(x => new object[] { x.BitOffset, x.Value, x.Zero })
+                .ToArray<object>();
 
         private byte GetRegister(Registers register) =>
             register switch
