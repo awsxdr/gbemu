@@ -344,30 +344,198 @@
                 0x3d => (8, ShiftRightZero(() => Registers.L)),
                 0x3e => (16, ShiftMemoryRightZero),
                 0x3f => (8, ShiftRightZero(() => Registers.A)),
-                0x40 => (8, CheckBit(() => Registers.B)),
-                0x41 => (8, CheckBit(() => Registers.C)),
-                0x42 => (8, CheckBit(() => Registers.D)),
-                0x43 => (8, CheckBit(() => Registers.E)),
-                0x44 => (8, CheckBit(() => Registers.H)),
-                0x45 => (8, CheckBit(() => Registers.L)),
-                0x46 => (8, CheckBit(() => _bus.Read(Registers.HL))),
-                0x47 => (8, CheckBit(() => Registers.A)),
-                0x80 => (8, UnsetBit(() => Registers.B)),
-                0x81 => (8, UnsetBit(() => Registers.C)),
-                0x82 => (8, UnsetBit(() => Registers.D)),
-                0x83 => (8, UnsetBit(() => Registers.E)),
-                0x84 => (8, UnsetBit(() => Registers.H)),
-                0x85 => (8, UnsetBit(() => Registers.L)),
-                0x86 => (16, UnsetMemoryBit),
-                0x87 => (8, UnsetBit(() => Registers.A)),
-                0xc0 => (8, SetBit(() => Registers.B)),
-                0xc1 => (8, SetBit(() => Registers.C)),
-                0xc2 => (8, SetBit(() => Registers.D)),
-                0xc3 => (8, SetBit(() => Registers.E)),
-                0xc4 => (8, SetBit(() => Registers.H)),
-                0xc5 => (8, SetBit(() => Registers.L)),
-                0xc6 => (16, SetMemoryBit),
-                0xc7 => (8, SetBit(() => Registers.A)),
+                0x40 => (8, CheckBit(0, () => Registers.B)),
+                0x41 => (8, CheckBit(0, () => Registers.C)),
+                0x42 => (8, CheckBit(0, () => Registers.D)),
+                0x43 => (8, CheckBit(0, () => Registers.E)),
+                0x44 => (8, CheckBit(0, () => Registers.H)),
+                0x45 => (8, CheckBit(0, () => Registers.L)),
+                0x46 => (8, CheckBit(0, () => _bus.Read(Registers.HL))),
+                0x47 => (8, CheckBit(0, () => Registers.A)),
+                0x48 => (8, CheckBit(1, () => Registers.B)),
+                0x49 => (8, CheckBit(1, () => Registers.C)),
+                0x4a => (8, CheckBit(1, () => Registers.D)),
+                0x4b => (8, CheckBit(1, () => Registers.E)),
+                0x4c => (8, CheckBit(1, () => Registers.H)),
+                0x4d => (8, CheckBit(1, () => Registers.L)),
+                0x4e => (8, CheckBit(1, () => _bus.Read(Registers.HL))),
+                0x4f => (8, CheckBit(1, () => Registers.A)),
+                0x50 => (8, CheckBit(2, () => Registers.B)),
+                0x51 => (8, CheckBit(2, () => Registers.C)),
+                0x52 => (8, CheckBit(2, () => Registers.D)),
+                0x53 => (8, CheckBit(2, () => Registers.E)),
+                0x54 => (8, CheckBit(2, () => Registers.H)),
+                0x55 => (8, CheckBit(2, () => Registers.L)),
+                0x56 => (8, CheckBit(2, () => _bus.Read(Registers.HL))),
+                0x57 => (8, CheckBit(2, () => Registers.A)),
+                0x58 => (8, CheckBit(3, () => Registers.B)),
+                0x59 => (8, CheckBit(3, () => Registers.C)),
+                0x5a => (8, CheckBit(3, () => Registers.D)),
+                0x5b => (8, CheckBit(3, () => Registers.E)),
+                0x5c => (8, CheckBit(3, () => Registers.H)),
+                0x5d => (8, CheckBit(3, () => Registers.L)),
+                0x5e => (8, CheckBit(3, () => _bus.Read(Registers.HL))),
+                0x5f => (8, CheckBit(3, () => Registers.A)),
+                0x60 => (8, CheckBit(4, () => Registers.B)),
+                0x61 => (8, CheckBit(4, () => Registers.C)),
+                0x62 => (8, CheckBit(4, () => Registers.D)),
+                0x63 => (8, CheckBit(4, () => Registers.E)),
+                0x64 => (8, CheckBit(4, () => Registers.H)),
+                0x65 => (8, CheckBit(4, () => Registers.L)),
+                0x66 => (8, CheckBit(4, () => _bus.Read(Registers.HL))),
+                0x67 => (8, CheckBit(4, () => Registers.A)),
+                0x68 => (8, CheckBit(5, () => Registers.B)),
+                0x69 => (8, CheckBit(5, () => Registers.C)),
+                0x6a => (8, CheckBit(5, () => Registers.D)),
+                0x6b => (8, CheckBit(5, () => Registers.E)),
+                0x6c => (8, CheckBit(5, () => Registers.H)),
+                0x6d => (8, CheckBit(5, () => Registers.L)),
+                0x6e => (8, CheckBit(5, () => _bus.Read(Registers.HL))),
+                0x6f => (8, CheckBit(5, () => Registers.A)),
+                0x70 => (8, CheckBit(6, () => Registers.B)),
+                0x71 => (8, CheckBit(6, () => Registers.C)),
+                0x72 => (8, CheckBit(6, () => Registers.D)),
+                0x73 => (8, CheckBit(6, () => Registers.E)),
+                0x74 => (8, CheckBit(6, () => Registers.H)),
+                0x75 => (8, CheckBit(6, () => Registers.L)),
+                0x76 => (8, CheckBit(6, () => _bus.Read(Registers.HL))),
+                0x77 => (8, CheckBit(6, () => Registers.A)),
+                0x78 => (8, CheckBit(7, () => Registers.B)),
+                0x79 => (8, CheckBit(7, () => Registers.C)),
+                0x7a => (8, CheckBit(7, () => Registers.D)),
+                0x7b => (8, CheckBit(7, () => Registers.E)),
+                0x7c => (8, CheckBit(7, () => Registers.H)),
+                0x7d => (8, CheckBit(7, () => Registers.L)),
+                0x7e => (8, CheckBit(7, () => _bus.Read(Registers.HL))),
+                0x7f => (8, CheckBit(7, () => Registers.A)),
+                0x80 => (8, UnsetBit(0, () => Registers.B)),
+                0x81 => (8, UnsetBit(0, () => Registers.C)),
+                0x82 => (8, UnsetBit(0, () => Registers.D)),
+                0x83 => (8, UnsetBit(0, () => Registers.E)),
+                0x84 => (8, UnsetBit(0, () => Registers.H)),
+                0x85 => (8, UnsetBit(0, () => Registers.L)),
+                0x86 => (16, UnsetMemoryBit(0)),
+                0x87 => (8, UnsetBit(0, () => Registers.A)),
+                0x88 => (8, UnsetBit(1, () => Registers.B)),
+                0x89 => (8, UnsetBit(1, () => Registers.C)),
+                0x8a => (8, UnsetBit(1, () => Registers.D)),
+                0x8b => (8, UnsetBit(1, () => Registers.E)),
+                0x8c => (8, UnsetBit(1, () => Registers.H)),
+                0x8d => (8, UnsetBit(1, () => Registers.L)),
+                0x8e => (16, UnsetMemoryBit(1)),
+                0x8f => (8, UnsetBit(1, () => Registers.A)),
+                0x90 => (8, UnsetBit(2, () => Registers.B)),
+                0x91 => (8, UnsetBit(2, () => Registers.C)),
+                0x92 => (8, UnsetBit(2, () => Registers.D)),
+                0x93 => (8, UnsetBit(2, () => Registers.E)),
+                0x94 => (8, UnsetBit(2, () => Registers.H)),
+                0x95 => (8, UnsetBit(2, () => Registers.L)),
+                0x96 => (16, UnsetMemoryBit(2)),
+                0x97 => (8, UnsetBit(2, () => Registers.A)),
+                0x98 => (8, UnsetBit(3, () => Registers.B)),
+                0x99 => (8, UnsetBit(3, () => Registers.C)),
+                0x9a => (8, UnsetBit(3, () => Registers.D)),
+                0x9b => (8, UnsetBit(3, () => Registers.E)),
+                0x9c => (8, UnsetBit(3, () => Registers.H)),
+                0x9d => (8, UnsetBit(3, () => Registers.L)),
+                0x9e => (16, UnsetMemoryBit(3)),
+                0x9f => (8, UnsetBit(3, () => Registers.A)),
+                0xa0 => (8, UnsetBit(4, () => Registers.B)),
+                0xa1 => (8, UnsetBit(4, () => Registers.C)),
+                0xa2 => (8, UnsetBit(4, () => Registers.D)),
+                0xa3 => (8, UnsetBit(4, () => Registers.E)),
+                0xa4 => (8, UnsetBit(4, () => Registers.H)),
+                0xa5 => (8, UnsetBit(4, () => Registers.L)),
+                0xa6 => (16, UnsetMemoryBit(4)),
+                0xa7 => (8, UnsetBit(4, () => Registers.A)),
+                0xa8 => (8, UnsetBit(5, () => Registers.B)),
+                0xa9 => (8, UnsetBit(5, () => Registers.C)),
+                0xaa => (8, UnsetBit(5, () => Registers.D)),
+                0xab => (8, UnsetBit(5, () => Registers.E)),
+                0xac => (8, UnsetBit(5, () => Registers.H)),
+                0xad => (8, UnsetBit(5, () => Registers.L)),
+                0xae => (16, UnsetMemoryBit(5)),
+                0xaf => (8, UnsetBit(5, () => Registers.A)),
+                0xb0 => (8, UnsetBit(6, () => Registers.B)),
+                0xb1 => (8, UnsetBit(6, () => Registers.C)),
+                0xb2 => (8, UnsetBit(6, () => Registers.D)),
+                0xb3 => (8, UnsetBit(6, () => Registers.E)),
+                0xb4 => (8, UnsetBit(6, () => Registers.H)),
+                0xb5 => (8, UnsetBit(6, () => Registers.L)),
+                0xb6 => (16, UnsetMemoryBit(6)),
+                0xb7 => (8, UnsetBit(6, () => Registers.A)),
+                0xb8 => (8, UnsetBit(7, () => Registers.B)),
+                0xb9 => (8, UnsetBit(7, () => Registers.C)),
+                0xba => (8, UnsetBit(7, () => Registers.D)),
+                0xbb => (8, UnsetBit(7, () => Registers.E)),
+                0xbc => (8, UnsetBit(7, () => Registers.H)),
+                0xbd => (8, UnsetBit(7, () => Registers.L)),
+                0xbe => (16, UnsetMemoryBit(7)),
+                0xbf => (8, UnsetBit(7, () => Registers.A)),
+                0xc0 => (8, SetBit(0, () => Registers.B)),
+                0xc1 => (8, SetBit(0, () => Registers.C)),
+                0xc2 => (8, SetBit(0, () => Registers.D)),
+                0xc3 => (8, SetBit(0, () => Registers.E)),
+                0xc4 => (8, SetBit(0, () => Registers.H)),
+                0xc5 => (8, SetBit(0, () => Registers.L)),
+                0xc6 => (16, SetMemoryBit(0)),
+                0xc7 => (8, SetBit(0, () => Registers.A)),
+                0xc8 => (8, SetBit(1, () => Registers.B)),
+                0xc9 => (8, SetBit(1, () => Registers.C)),
+                0xca => (8, SetBit(1, () => Registers.D)),
+                0xcb => (8, SetBit(1, () => Registers.E)),
+                0xcc => (8, SetBit(1, () => Registers.H)),
+                0xcd => (8, SetBit(1, () => Registers.L)),
+                0xce => (16, SetMemoryBit(1)),
+                0xcf => (8, SetBit(1, () => Registers.A)),
+                0xd0 => (8, SetBit(2, () => Registers.B)),
+                0xd1 => (8, SetBit(2, () => Registers.C)),
+                0xd2 => (8, SetBit(2, () => Registers.D)),
+                0xd3 => (8, SetBit(2, () => Registers.E)),
+                0xd4 => (8, SetBit(2, () => Registers.H)),
+                0xd5 => (8, SetBit(2, () => Registers.L)),
+                0xd6 => (16, SetMemoryBit(2)),
+                0xd7 => (8, SetBit(2, () => Registers.A)),
+                0xd8 => (8, SetBit(3, () => Registers.B)),
+                0xd9 => (8, SetBit(3, () => Registers.C)),
+                0xda => (8, SetBit(3, () => Registers.D)),
+                0xdb => (8, SetBit(3, () => Registers.E)),
+                0xdc => (8, SetBit(3, () => Registers.H)),
+                0xdd => (8, SetBit(3, () => Registers.L)),
+                0xde => (16, SetMemoryBit(3)),
+                0xdf => (8, SetBit(3, () => Registers.A)),
+                0xe0 => (8, SetBit(4, () => Registers.B)),
+                0xe1 => (8, SetBit(4, () => Registers.C)),
+                0xe2 => (8, SetBit(4, () => Registers.D)),
+                0xe3 => (8, SetBit(4, () => Registers.E)),
+                0xe4 => (8, SetBit(4, () => Registers.H)),
+                0xe5 => (8, SetBit(4, () => Registers.L)),
+                0xe6 => (16, SetMemoryBit(4)),
+                0xe7 => (8, SetBit(4, () => Registers.A)),
+                0xe8 => (8, SetBit(5, () => Registers.B)),
+                0xe9 => (8, SetBit(5, () => Registers.C)),
+                0xea => (8, SetBit(5, () => Registers.D)),
+                0xeb => (8, SetBit(5, () => Registers.E)),
+                0xec => (8, SetBit(5, () => Registers.H)),
+                0xed => (8, SetBit(5, () => Registers.L)),
+                0xee => (16, SetMemoryBit(5)),
+                0xef => (8, SetBit(5, () => Registers.A)),
+                0xf0 => (8, SetBit(6, () => Registers.B)),
+                0xf1 => (8, SetBit(6, () => Registers.C)),
+                0xf2 => (8, SetBit(6, () => Registers.D)),
+                0xf3 => (8, SetBit(6, () => Registers.E)),
+                0xf4 => (8, SetBit(6, () => Registers.H)),
+                0xf5 => (8, SetBit(6, () => Registers.L)),
+                0xf6 => (16, SetMemoryBit(6)),
+                0xf7 => (8, SetBit(6, () => Registers.A)),
+                0xf8 => (8, SetBit(7, () => Registers.B)),
+                0xf9 => (8, SetBit(7, () => Registers.C)),
+                0xfa => (8, SetBit(7, () => Registers.D)),
+                0xfb => (8, SetBit(7, () => Registers.E)),
+                0xfc => (8, SetBit(7, () => Registers.H)),
+                0xfd => (8, SetBit(7, () => Registers.L)),
+                0xfe => (16, SetMemoryBit(7)),
+                0xff => (8, SetBit(7, () => Registers.A)),
                 _ => (0, Nop)
             };
 
@@ -422,7 +590,7 @@
         };
 
         private Action Pop(Expression<Func<Register16>> register) =>
-            Load16IntoRegister(register, () => (ushort) (_bus.Read(Registers.SP++) | (_bus.Read(Registers.SP++) << 8)));
+            Load16IntoRegister(register, () => (ushort) ((_bus.Read(++Registers.SP) << 8) | _bus.Read(++Registers.SP)));
 
         private Action Add(Func<byte> register) => () =>
         {
@@ -925,35 +1093,35 @@
             _bus.Write(Registers.HL, value);
         }
 
-        private Action CheckBit(Func<byte> value) =>
+        private Action CheckBit(byte bit, Func<byte> value) =>
             () =>
             {
-                UpdateFlag(Flags.Zero, (value() & (1 << _bus.Read(Registers.PC++))) == 0);
+                UpdateFlag(Flags.Zero, (value() & (1 << bit)) == 0);
                 UnsetFlag(Flags.Subtract);
                 SetFlag(Flags.HalfCarry);
             };
 
-        private Action SetBit(Expression<Func<byte>> register)
+        private Action SetBit(byte bit, Expression<Func<byte>> register)
         {
             var (get, set) = GetGetterSetterMethods(register);
 
             return () =>
-                set((byte)(get() | (1 << _bus.Read(Registers.PC++))));
+                set((byte)(get() | (1 << bit)));
         }
 
-        private void SetMemoryBit() =>
-            _bus.Write(Registers.HL, (byte)(_bus.Read(Registers.HL) | (1 << _bus.Read(Registers.PC++))));
+        private Action SetMemoryBit(byte bit) => () =>
+            _bus.Write(Registers.HL, (byte)(_bus.Read(Registers.HL) | (1 << bit)));
 
-        private Action UnsetBit(Expression<Func<byte>> register)
+        private Action UnsetBit(byte bit, Expression<Func<byte>> register)
         {
             var (get, set) = GetGetterSetterMethods(register);
 
             return () =>
-                set((byte)(get() & ~(1 << _bus.Read(Registers.PC++))));
+                set((byte)(get() & ~(1 << bit)));
         }
 
-        private void UnsetMemoryBit() =>
-            _bus.Write(Registers.HL, (byte)(_bus.Read(Registers.HL) & ~(1 << _bus.Read(Registers.PC++))));
+        private Action UnsetMemoryBit(byte bit) => () =>
+            _bus.Write(Registers.HL, (byte)(_bus.Read(Registers.HL) & ~(1 << bit)));
 
         private void JumpAbsolute()
         {

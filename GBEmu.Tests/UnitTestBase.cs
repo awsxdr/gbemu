@@ -14,7 +14,7 @@
         protected TClassUnderTest ClassUnderTest => _classUnderTest.Value;
 
         [SetUp]
-        protected void Setup()
+        protected virtual void Setup()
         {
             _autoMocker = new AutoMocker(MockBehavior.Loose);
             _classUnderTest = new Lazy<TClassUnderTest>(() => _autoMocker.CreateInstance<TClassUnderTest>());

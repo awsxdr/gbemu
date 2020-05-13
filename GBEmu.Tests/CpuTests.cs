@@ -2,18 +2,20 @@ namespace GBEmu.Tests
 {
     using System;
     using System.Linq;
-    using System.Net.Sockets;
     using FluentAssertions;
     using Moq;
     using NUnit.Framework;
+    using Range = Moq.Range;
 
     [TestFixture]
     public class CpuTests : UnitTestBase<Cpu>
     {
-        [Test]
-        public void Cpu_OnConstruct_SetsCorrectStartPoint()
+        [SetUp]
+        protected override void Setup()
         {
-            ((ushort) ClassUnderTest.Registers.PC).Should().Be(0x100);
+            base.Setup();
+
+            ClassUnderTest.Registers.PC = 0x100;
         }
 
         [Test]
@@ -461,10 +463,10 @@ namespace GBEmu.Tests
         [TestCase(Register16s.HL, 0xe1)]
         public void Pop_SetsRegister(Register16s register, byte opcode)
         {
-            ClassUnderTest.Registers.SP = 0xff7e;
+            ClassUnderTest.Registers.SP = 0xff7d;
             GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
-            GetMock<IBus>().Setup(m => m.Read(0xff7e)).Returns(0x34);
-            GetMock<IBus>().Setup(m => m.Read(0xff7f)).Returns(0x12);
+            GetMock<IBus>().Setup(m => m.Read(0xff7e)).Returns(0x12);
+            GetMock<IBus>().Setup(m => m.Read(0xff7f)).Returns(0x34);
 
             ClassUnderTest.Next();
 
@@ -478,12 +480,36 @@ namespace GBEmu.Tests
         [TestCase(0xe1)]
         public void Pop_IncrementsStackPointer(byte opcode)
         {
-            ClassUnderTest.Registers.SP = 0xff7e;
+            ClassUnderTest.Registers.SP = 0xff7d;
             GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
 
             ClassUnderTest.Next();
 
             ((ushort)ClassUnderTest.Registers.SP).Should().Be(0xff80);
+        }
+
+        [Test]
+        [TestCase(Register16s.AF, 0xf5, 0xf1)]
+        [TestCase(Register16s.BC, 0xc5, 0xc1)]
+        [TestCase(Register16s.DE, 0xd5, 0xd1)]
+        [TestCase(Register16s.HL, 0xe5, 0xe1)]
+        public void Push_FollowedByPop_ReturnsOriginalValue(Register16s register, byte pushOpcode, byte popOpcode)
+        {
+            var stackBuffer = new byte[0xff];
+
+            GetMock<IBus>().Setup(m => m.Read(It.IsInRange<ushort>(0xff00, 0xffff, Range.Inclusive))).Returns((ushort a) => stackBuffer[a - 0xff00]);
+            GetMock<IBus>().Setup(m => m.Write(It.IsInRange<ushort>(0xff00, 0xffff, Range.Inclusive), It.IsAny<byte>())).Callback((ushort a, byte v) => stackBuffer[a - 0xff00] = v);
+            GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(pushOpcode);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(popOpcode);
+
+            ClassUnderTest.Registers.SP = 0xfffe;
+
+            SetRegister(register, 0x1234);
+            ClassUnderTest.Next();
+            SetRegister(register, 0xffff);
+            ClassUnderTest.Next();
+
+            GetRegister(register).Should().Be(0x1234);
         }
 
         [Test]
@@ -2581,8 +2607,7 @@ namespace GBEmu.Tests
             SetRegister(register, value);
 
             GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
-            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns((byte)(0xc0 + opcodeOffset));
-            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns((byte)(0xc0 + opcodeOffset + bitOffset * 0x08));
 
             ClassUnderTest.Next();
 
@@ -2596,8 +2621,7 @@ namespace GBEmu.Tests
             ClassUnderTest.Registers.HL = 0x1234;
 
             GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
-            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0xc6);
-            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns((byte)(0xc6 + bitOffset * 0x08));
             GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns(value);
 
             ClassUnderTest.Next();
@@ -2612,8 +2636,7 @@ namespace GBEmu.Tests
             SetRegister(register, (byte)~value);
 
             GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
-            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns((byte)(0x80 + opcodeOffset));
-            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns((byte)(0x80 + opcodeOffset + bitOffset * 0x08));
 
             ClassUnderTest.Next();
 
@@ -2629,8 +2652,7 @@ namespace GBEmu.Tests
             ClassUnderTest.Registers.HL = 0x1234;
 
             GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xcb);
-            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns(0x86);
-            GetMock<IBus>().Setup(m => m.Read(0x102)).Returns(bitOffset);
+            GetMock<IBus>().Setup(m => m.Read(0x101)).Returns((byte) (0x86 + bitOffset * 0x08));
             GetMock<IBus>().Setup(m => m.Read(0x1234)).Returns((byte)~value);
 
             ClassUnderTest.Next();
@@ -2833,8 +2855,8 @@ namespace GBEmu.Tests
         {
             ClassUnderTest.Registers.SP = 0xff00;
             GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(0xc9);
-            GetMock<IBus>().Setup(m => m.Read(0xff00)).Returns(0x34);
             GetMock<IBus>().Setup(m => m.Read(0xff01)).Returns(0x12);
+            GetMock<IBus>().Setup(m => m.Read(0xff02)).Returns(0x34);
 
             ClassUnderTest.Next();
 
@@ -2861,8 +2883,8 @@ namespace GBEmu.Tests
                 });
 
             GetMock<IBus>().Setup(m => m.Read(0x100)).Returns(opcode);
-            GetMock<IBus>().Setup(m => m.Read(0xff00)).Returns(0x34);
             GetMock<IBus>().Setup(m => m.Read(0xff01)).Returns(0x12);
+            GetMock<IBus>().Setup(m => m.Read(0xff02)).Returns(0x34);
 
             ClassUnderTest.Next();
 
