@@ -24,6 +24,11 @@
 
             var instruction = ParseNextInstruction();
             instruction.Method();
+            
+            if(Registers.PC == 0x008c)
+            {
+                int a = 0;
+            }
 
             tempDelayedAction?.Invoke();
         }

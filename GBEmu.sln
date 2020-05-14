@@ -5,7 +5,9 @@ VisualStudioVersion = 16.0.29009.5
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GBEmu", "GBEmu\GBEmu.csproj", "{AC29CBF7-E04E-41C5-A8D8-62A72810612C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GBEmu.Tests", "GBEmu.Tests\GBEmu.Tests.csproj", "{99F977B4-69EC-42ED-BE05-2EB98FFFC352}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GBEmu.Tests", "GBEmu.Tests\GBEmu.Tests.csproj", "{99F977B4-69EC-42ED-BE05-2EB98FFFC352}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GBEmu.ConsoleGraphics", "GBEmu.ConsoleGraphics\GBEmu.ConsoleGraphics.csproj", "{DC1B7F6A-E6B9-452D-B459-70CE175F11F2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{99F977B4-69EC-42ED-BE05-2EB98FFFC352}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{99F977B4-69EC-42ED-BE05-2EB98FFFC352}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{99F977B4-69EC-42ED-BE05-2EB98FFFC352}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DC1B7F6A-E6B9-452D-B459-70CE175F11F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DC1B7F6A-E6B9-452D-B459-70CE175F11F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DC1B7F6A-E6B9-452D-B459-70CE175F11F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DC1B7F6A-E6B9-452D-B459-70CE175F11F2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

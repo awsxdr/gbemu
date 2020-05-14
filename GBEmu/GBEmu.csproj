@@ -15,4 +15,8 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\GBEmu.ConsoleGraphics\GBEmu.ConsoleGraphics.csproj" />
+  </ItemGroup>
+
 </Project>
