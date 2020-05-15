@@ -4,44 +4,61 @@
 
     public class GameBoy
     {
-        private readonly Cpu _cpu;
-        private readonly Display _display;
+        private readonly Bus _bus;
+        private Rom _loadedCartridge;
+        private readonly Clock _clock;
+        private readonly Rom _bios;
 
         public GameBoy()
         {
-            var bus = new Bus();
-            var bios = Rom.FromFile("dmg_boot.bin");
+            _bus = new Bus();
+            _bios = Rom.FromFile("dmg_boot.bin");
             var internalRam = new Ram(8 * 1024);
             var highRam = new Ram(0x7f);
+            var biosDisableRam = new Ram(0x01);
+            var interruptEnable = new Ram(0x01);
+            var interruptFlag = new Ram(0x01);
+            var ioPorts = new Ram(0x08);
+            var divider = new Divider();
+            _clock = new Clock();
 
             const int screenWidth = 160;
             const int screenHeight = 144;
             var consoleOutput = new ConsoleOutput(screenWidth, screenHeight);
-            _display = new Display(consoleOutput);
+            var display = new Display(consoleOutput);
 
-            bus.AttachDevice(0x0000, 0x0100, bios);
-            bus.AttachDevice(0x8000, 0x2000, _display);
-            bus.AttachDevice(0xc000, 0x2000, internalRam);
-            bus.AttachDevice(0xe000, 0x1e00, internalRam);
-            bus.AttachDevice(0xff40, 0x000b, _display.DisplayControl);
-            bus.AttachDevice(0xff80, 0x7f, highRam);
+            _bus.AttachDevice(0x0000, 0x0100, _bios);
+            _bus.AttachDevice(0x8000, 0x2000, display);
+            _bus.AttachDevice(0xc000, 0x2000, internalRam);
+            _bus.AttachDevice(0xe000, 0x1e00, internalRam);
+            _bus.AttachDevice(0xff00, 0x0008, ioPorts);
+            _bus.AttachDevice(0xff0f, 0x0001, interruptFlag);
+            _bus.AttachDevice(0xff40, 0x000b, display.DisplayControl);
+            _bus.AttachDevice(0xff50, 0x0001, biosDisableRam);
+            _bus.AttachDevice(0xff80, 0x7e, highRam);
+            _bus.AttachDevice(0xffff, 0x0001, interruptEnable);
 
-            _cpu = new Cpu(bus);
+            var cpu = new Cpu(_bus);
+            biosDisableRam.WatchWrite(0x0000, (a, v) => _bus.RemoveDevice(_bios));
+
+            cpu.ConnectClock(_clock);
+            display.ConnectClock(_clock);
+            divider.ConnectClock(_clock);
         }
 
         public void Start()
         {
-            var i = 0;
+            _clock.Start();
+        }
 
-            while (true)
-            {
-                _cpu.Next();
-                if(++i == 1000)
-                {
-                    i = 0;
-                    _display.Refresh();
-                }
-            }
+        public void LoadCartridge(string filePath)
+        {
+            if (_loadedCartridge != null)
+                _bus.RemoveDevice(_loadedCartridge);
+
+            _loadedCartridge = Rom.FromFile(filePath);
+            _bus.AttachDevice(0x0000, 0x8000, _loadedCartridge);
+            _bus.AttachDevice(0x0000, 0x0100, _bios);
         }
     }
 }

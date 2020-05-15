@@ -2,11 +2,11 @@
 {
     public class CpuRegisters
     {
-        private Register16 _af;
-        public Register16 AF
+        private DoubleRegister _af;
+        public DoubleRegister AF
         {
             get => _af;
-            set => _af = value;
+            set => _af = (DoubleRegister)(value & 0xfff0); // Only the top 4 bits of the F register should ever be set
         }
         public byte A
         {
@@ -16,11 +16,11 @@
         public byte F
         {
             get => _af.Lower;
-            set => _af.Lower = value;
+            set => _af.Lower = (byte)(value & 0xf0); // Only the top 4 bits should ever be set
         }
 
-        private Register16 _bc;
-        public Register16 BC
+        private DoubleRegister _bc;
+        public DoubleRegister BC
         {
             get => _bc;
             set => _bc = value;
@@ -36,8 +36,8 @@
             set => _bc.Lower = value;
         }
 
-        private Register16 _de;
-        public Register16 DE
+        private DoubleRegister _de;
+        public DoubleRegister DE
         {
             get => _de;
             set => _de = value;
@@ -53,8 +53,8 @@
             set => _de.Lower = value;
         }
 
-        private Register16 _hl;
-        public Register16 HL
+        private DoubleRegister _hl;
+        public DoubleRegister HL
         {
             get => _hl;
             set => _hl = value;
@@ -70,7 +70,7 @@
             set => _hl.Lower = value;
         }
 
-        public Register16 PC { get; set; }
-        public Register16 SP { get; set; }
+        public DoubleRegister PC { get; set; }
+        public DoubleRegister SP { get; set; }
     }
 }

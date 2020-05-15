@@ -1,11 +1,9 @@
 ﻿namespace GBEmu
 {
-    using System;
     using System.Collections.Generic;
     using System.IO;
-    using System.Linq;
 
-    public class Rom : IIoDevice
+    public class Rom : BaseIoDevice
     {
         private readonly byte[] _data;
 
@@ -17,12 +15,14 @@
             _data = data;
         }
 
-        public void Write(ushort address, byte data) => throw new InvalidOperationException();
-        public void Write(ushort address, IEnumerable<byte> data) => throw new InvalidOperationException();
+        public override void Write(ushort address, byte data)
+        {
+        }
 
-        public byte Read(ushort address) => _data[address];
+        public override void Write(ushort address, IEnumerable<byte> data)
+        {
+        }
 
-        public IReadOnlyCollection<byte> Read(ushort address, uint length) =>
-            _data.Skip(address).Take((int)length).ToArray();
+        public override byte Read(ushort address) => _data[address];
     }
 }

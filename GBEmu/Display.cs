@@ -1,6 +1,5 @@
 ﻿namespace GBEmu
 {
-    using System.Collections.Generic;
     using System.Linq;
     using ConsoleGraphics;
 
@@ -70,6 +69,18 @@
             return image;
         }
 
+        public void ConnectClock(Clock clock)
+        {
+            var tickCount = 0;
+            clock.Tick += () =>
+            {
+                if (++tickCount > 100000)
+                {
+                    tickCount = 0;
+                    Refresh();
+                }
+            };
+        }
     }
 
     public class DisplayControl : Ram

@@ -6,7 +6,9 @@ namespace GBEmu
     {
         static void Main(string[] args)
         {
-            new GameBoy().Start();
+            var gameboy = new GameBoy();
+            gameboy.LoadCartridge(@"C:\Users\Daniel Errington\Downloads\cpu_instrs.gb");
+            gameboy.Start();
         }
     }
 }
