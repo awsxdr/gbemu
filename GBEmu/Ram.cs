@@ -9,8 +9,8 @@
 
         public override void Write(ushort address, byte data)
         {
-            base.Write(address, data);
             _memory[address] = data;
+            base.Write(address, data);
         }
 
         public override byte Read(ushort address) =>

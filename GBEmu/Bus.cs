@@ -40,6 +40,7 @@
             var device = GetDeviceAtAddress(address);
 
             device?.Device.Write((ushort)(address - device.StartAddress), data);
+            base.Write(address, data);
         }
 
         public override void Write(ushort address, IEnumerable<byte> data)

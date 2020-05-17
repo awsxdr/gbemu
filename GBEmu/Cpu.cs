@@ -1,6 +1,7 @@
 ﻿namespace GBEmu
 {
     using System;
+    using System.Diagnostics;
 
     public class Cpu
     {
@@ -12,7 +13,7 @@
         public Cpu(IBus bus)
         {
             Registers.PC = 0;
-            Registers.SP = 0xfffe;
+            Registers.SP = 0xffff;
             _bus = bus;
         }
 
@@ -33,26 +34,24 @@
             var tempDelayedAction = _delayedAction;
             _delayedAction = null;
 
-            var instruction = ParseNextInstruction();
-            instruction.Method();
-            _bus.Write(0xff44, (byte) ((_bus.Read(0xff44) + instruction.ClockCycles) % 256));
-
-            if (Registers.PC == 0x000c)
+            if (Registers.PC == 0xc2c4)
             {
                 int a = 0;
             }
+
+            var instruction = ParseNextInstruction();
+            instruction.Method();
 
             tempDelayedAction?.Invoke();
 
             return instruction.ClockCycles;
         }
 
-        private void Interrupt(Interrupts interrupt)
+        public void Interrupt(Interrupts interrupt)
         {
             if (!_interruptsEnabled) return;
             _interruptsEnabled = false;
 
-            _bus.Write(0xff0f, (byte)interrupt);
             var requestedInterrupts = (Interrupts) _bus.Read(0xffff);
             var interruptsToExecute = requestedInterrupts & interrupt;
 
@@ -66,8 +65,9 @@
 
             if (address >= 0)
             {
-                Push(() => Registers.PC);
+                Push(() => Registers.PC)();
                 Registers.PC = (ushort)address;
+                _bus.Write(0xff0f, 0x00);
             }
 
             _interruptsEnabled = true;
@@ -83,7 +83,7 @@
                 0x04 => (4, IncrementRegister(Register8.B)),
                 0x05 => (4, DecrementRegister(Register8.B)),
                 0x06 => (8, LoadNextByteIntoRegister(Register8.B)),
-                0x07 => (4, RotateLeft(Register8.A)),
+                0x07 => (4, RotateLeft(Register8.A, neverZero: true)),
                 0x08 => (20, LoadStackPointerIntoMemory),
                 0x09 => (8, AddHL(() => Registers.BC)),
                 0x0a => (8, LoadValueIntoRegister(Register8.A, () => _bus.Read(Registers.BC))),
@@ -91,7 +91,7 @@
                 0x0c => (4, IncrementRegister(Register8.C)),
                 0x0d => (4, DecrementRegister(Register8.C)),
                 0x0e => (8, LoadNextByteIntoRegister(Register8.C)),
-                0x0f => (4, RotateRight(Register8.A)),
+                0x0f => (4, RotateRight(Register8.A, neverZero: true)),
                 0x10 when _bus.Read(Registers.PC++) == 0x00 => (4, Stop),
                 0x11 => (12, Load16IntoRegister(Register16.DE, ReadImmediate16)),
                 0x12 => (8, LoadRegisterIntoMemory(() => Registers.DE, () => Registers.A)),
@@ -99,7 +99,7 @@
                 0x14 => (4, IncrementRegister(Register8.D)),
                 0x15 => (4, DecrementRegister(Register8.D)),
                 0x16 => (8, LoadNextByteIntoRegister(Register8.D)),
-                0x17 => (4, RotateLeftThroughCarry(Register8.A)),
+                0x17 => (4, RotateLeftThroughCarry(Register8.A, neverZero: true)),
                 0x18 => (8, JumpRelative),
                 0x19 => (8, AddHL(() => Registers.DE)),
                 0x1a => (8, LoadValueIntoRegister(Register8.A, () => _bus.Read(Registers.DE))),
@@ -107,7 +107,7 @@
                 0x1c => (4, IncrementRegister(Register8.E)),
                 0x1d => (4, DecrementRegister(Register8.E)),
                 0x1e => (8, LoadNextByteIntoRegister(Register8.E)),
-                0x1f => (4, RotateRightThroughCarry(Register8.A)),
+                0x1f => (4, RotateRightThroughCarry(Register8.A, neverZero: true)),
                 0x20 => (8, JumpRelativeConditional(Flags.Zero, true)),
                 0x21 => (12, Load16IntoRegister(Register16.HL, ReadImmediate16)),
                 0x22 => (8, LoadRegisterIntoMemory(() => Registers.HL++, () => Registers.A)),
@@ -315,13 +315,13 @@
                 0xf5 => (16, Push(() => Registers.AF)),
                 0xf6 => (8, Or(() => _bus.Read(Registers.PC++))),
                 0xf7 => (32, ResetToAddress(0x30)),
-                0xf8 => (12, Load16IntoRegister(Register16.HL, () => (ushort) (Registers.SP + (sbyte) _bus.Read(Registers.PC++)))),
+                0xf8 => (12, LoadSPPlusImmediateIntoHL),
                 0xf9 => (8, Load16IntoRegister(Register16.SP, () => Registers.HL)),
                 0xfa => (16, LoadImmediatePointerIntoAccumulator),
                 0xfb => (4, EnableInterrupts),
                 0xfe => (8, Compare(() => _bus.Read(Registers.PC++))),
                 0xff => (32, ResetToAddress(0x38)),
-                _ => (0, Nop)
+                _ => (4, Nop)
             };
 
         private (int ClockCycles, Action Method) ParseExtendedInstruction() =>
@@ -690,29 +690,45 @@
         private Action Push(Func<DoubleRegister> register) => () =>
         {
             var registerValue = register();
-            _bus.Write(Registers.SP--, registerValue.Lower);
-            _bus.Write(Registers.SP--, registerValue.Upper);
+            _bus.Write(--Registers.SP, registerValue.Upper);
+            _bus.Write(--Registers.SP, registerValue.Lower);
         };
 
         private Action Pop(Register16 register) =>
-            Load16IntoRegister(register, () => (ushort) ((_bus.Read(++Registers.SP) << 8) | _bus.Read(++Registers.SP)));
+            Load16IntoRegister(register, () => (ushort) (_bus.Read(Registers.SP++) | (_bus.Read(Registers.SP++) << 8)));
 
         private Action Add(Func<byte> register) => () =>
         {
-            var value = register();
-            var result = Registers.A + value;
+            var left = Registers.A;
+            var right = register();
+
+            var result = left + right;
 
             UpdateFlag(Flags.Carry, result > 0xff);
             UnsetFlag(Flags.Subtract);
             result &= 0xff;
             UpdateFlag(Flags.Zero, result == 0);
-            UpdateFlag(Flags.HalfCarry, (value & 0x0f) + (Registers.A & 0x0f) >= 0x10);
+            UpdateFlag(Flags.HalfCarry, (left & 0x0f) + (right & 0x0f) >= 0x10);
 
             Registers.A = (byte) result;
         };
 
-        private Action AddWithCarry(Func<byte> register) =>
-            Add(() => (byte) (register() + (GetFlag(Flags.Carry) ? 1 : 0)));
+        private Action AddWithCarry(Func<byte> register) => () =>
+        {
+            var left = Registers.A;
+            var right = register();
+            var carry = (GetFlag(Flags.Carry) ? 1 : 0);
+
+            var result = left + right + carry;
+
+            UpdateFlag(Flags.Carry, result > 0xff);
+            UnsetFlag(Flags.Subtract);
+            result &= 0xff;
+            UpdateFlag(Flags.Zero, result == 0);
+            UpdateFlag(Flags.HalfCarry, (left & 0x0f) + (right & 0x0f) + carry >= 0x10);
+
+            Registers.A = (byte)result;
+        };
 
         private Action Subtract(Func<byte> register) => () =>
         {
@@ -728,8 +744,22 @@
             Registers.A = (byte) result;
         };
 
-        private Action SubtractWithCarry(Func<byte> register) =>
-            Subtract(() => (byte) (register() + (GetFlag(Flags.Carry) ? 1 : 0)));
+        private Action SubtractWithCarry(Func<byte> register) => () =>
+        {
+            var left = Registers.A;
+            var right = register();
+            var carry = (GetFlag(Flags.Carry) ? 1 : 0);
+
+            var result = left - right - carry;
+
+            UpdateFlag(Flags.Carry, result < 0);
+            SetFlag(Flags.Subtract);
+            result &= 0xff;
+            UpdateFlag(Flags.Zero, result == 0);
+            UpdateFlag(Flags.HalfCarry, (left & 0x0f) - (right & 0x0f) - carry < 0);
+
+            Registers.A = (byte)result;
+        };
 
         private Action And(Func<byte> register) => () =>
         {
@@ -799,7 +829,7 @@
             GetSetterForRegister(register)(result);
 
             UpdateFlag(Flags.Zero, result == 0);
-            UnsetFlag(Flags.Subtract);
+            SetFlag(Flags.Subtract);
             UpdateFlag(Flags.HalfCarry, (result & 0x0f) == 0x0f);
         };
 
@@ -809,7 +839,7 @@
             _bus.Write(Registers.HL, result);
 
             UpdateFlag(Flags.Zero, result == 0);
-            UnsetFlag(Flags.Subtract);
+            SetFlag(Flags.Subtract);
             UpdateFlag(Flags.HalfCarry, (result & 0x0f) == 0x0f);
         }
 
@@ -821,33 +851,43 @@
             Registers.HL += right;
 
             UnsetFlag(Flags.Subtract);
-            UpdateFlag(Flags.HalfCarry, (left & 0x0f00) != ((left + right) & 0x0f00));
+            UpdateFlag(Flags.HalfCarry, (((left & 0x0fff) + (right & 0x0fff)) & 0xf000) > 0);
             UpdateFlag(Flags.Carry, left + right > 0xffff);
         };
 
         private void AddSPImmediate8()
         {
-            Registers.SP += _bus.Read(Registers.PC++);
+            var left = Registers.SP;
+            var right = (sbyte)_bus.Read(Registers.PC++);
+
+            var result = Registers.SP + right;
+
+            UnsetFlag(Flags.Zero);
+            UnsetFlag(Flags.Subtract);
+            if (right >= 0)
+            {
+                UpdateFlag(Flags.Carry, (left & 0xff) + right > 0xff);
+                UpdateFlag(Flags.HalfCarry, (left & 0xf) + (right & 0xf) > 0xf);
+            }
+            else
+            {
+                UpdateFlag(Flags.Carry, (result & 0xff) <= (left & 0xff));
+                UpdateFlag(Flags.HalfCarry, (result & 0xf) <= (left & 0xf));
+            }
+
+            Registers.SP = (ushort)result;
         }
 
         private Action IncrementRegister(Register16 register) => () =>
         {
-            var result = (ushort) (GetGetterForRegister(register)() + 1);
-            GetSetterForRegister(register)(result);
-
-            UpdateFlag(Flags.Zero, result == 0);
-            UnsetFlag(Flags.Subtract);
-            UpdateFlag(Flags.HalfCarry, (result & 0x0f) == 0);
+            var result = GetGetterForRegister(register)() + 1;
+            GetSetterForRegister(register)((ushort)result);
         };
 
         private Action DecrementRegister(Register16 register) => () =>
         {
-            var result = (ushort) (GetGetterForRegister(register)() + 1);
+            var result = (ushort) (GetGetterForRegister(register)() - 1);
             GetSetterForRegister(register)(result);
-
-            UpdateFlag(Flags.Zero, result == 0);
-            UnsetFlag(Flags.Subtract);
-            UpdateFlag(Flags.HalfCarry, (result & 0x0f) == 0);
         };
 
         private Action SwapRegisterNibbles(Register8 register) => () =>
@@ -878,16 +918,25 @@
 
         private void DecimalAdjustAccumulator()
         {
-            var cFlag = Registers.A > 99;
-            Registers.A = (byte) (
-                (Registers.A & 0x0f) > 9
-                    ? Registers.A - 10 + 0x10
-                    : Registers.A);
+            if(GetFlag(Flags.Subtract))
+            {
+                if (GetFlag(Flags.Carry)) Registers.A -= 0x60;
+                if (GetFlag(Flags.HalfCarry)) Registers.A -= 0x06;
+            }
+            else
+            {
+                if(GetFlag(Flags.Carry) || Registers.A > 0x99)
+                {
+                    Registers.A += 0x60;
+                    SetFlag(Flags.Carry);
+                }
 
+                if (GetFlag(Flags.HalfCarry) || (Registers.A & 0x0f) > 0x09)
+                    Registers.A += 0x06;
+            }
 
             UpdateFlag(Flags.Zero, Registers.A == 0);
             UnsetFlag(Flags.HalfCarry);
-            UpdateFlag(Flags.Carry, cFlag);
         }
 
         private void ComplementAccumulator()
@@ -934,7 +983,7 @@
             _delayedAction = () => _interruptsEnabled = true;
         }
 
-        private Action RotateLeft(Register8 register) => () =>
+        private Action RotateLeft(Register8 register, bool neverZero = false) => () =>
         {
             var value = GetGetterForRegister(register)();
             UpdateFlag(Flags.Carry, (value & 0b10000000) > 0);
@@ -943,7 +992,7 @@
             value <<= 1;
             value = (byte) (value | (GetFlag(Flags.Carry) ? 1 : 0));
 
-            UpdateFlag(Flags.Zero, value == 0);
+            UpdateFlag(Flags.Zero, !neverZero && value == 0);
 
             GetSetterForRegister(register)(value);
         };
@@ -962,7 +1011,7 @@
             _bus.Write(Registers.HL, value);
         }
 
-        private Action RotateLeftThroughCarry(Register8 register) => () =>
+        private Action RotateLeftThroughCarry(Register8 register, bool neverZero = false) => () =>
         {
             var value = GetGetterForRegister(register)();
             var oldCarryValue = GetFlag(Flags.Carry);
@@ -972,7 +1021,7 @@
             value <<= 1;
             value = (byte)(value | (oldCarryValue ? 1 : 0));
 
-            UpdateFlag(Flags.Zero, value == 0);
+            UpdateFlag(Flags.Zero, !neverZero && value == 0);
 
             GetSetterForRegister(register)(value);
         };
@@ -992,7 +1041,7 @@
             _bus.Write(Registers.HL, value);
         }
 
-        private Action RotateRight(Register8 register) => () =>
+        private Action RotateRight(Register8 register, bool neverZero = false) => () =>
         {
             var value = GetGetterForRegister(register)();
             UpdateFlag(Flags.Carry, (value & 0b00000001) > 0);
@@ -1001,7 +1050,7 @@
             value >>= 1;
             value = (byte)(value | (GetFlag(Flags.Carry) ? 0b10000000 : 0));
 
-            UpdateFlag(Flags.Zero, value == 0);
+            UpdateFlag(Flags.Zero, !neverZero && value == 0);
 
             GetSetterForRegister(register)(value);
         };
@@ -1020,7 +1069,7 @@
             _bus.Write(Registers.HL, value);
         }
 
-        private Action RotateRightThroughCarry(Register8 register) => () =>
+        private Action RotateRightThroughCarry(Register8 register, bool neverZero = false) => () =>
         {
             var value = GetGetterForRegister(register)();
             var oldCarryValue = GetFlag(Flags.Carry);
@@ -1030,7 +1079,7 @@
             value >>= 1;
             value = (byte) (value | (oldCarryValue ? 0b10000000 : 0));
 
-            UpdateFlag(Flags.Zero, value == 0);
+            UpdateFlag(Flags.Zero, !neverZero && value == 0);
 
             GetSetterForRegister(register)(value);
         };
@@ -1203,15 +1252,37 @@
             Registers.PC = addressOffset;
         };
 
+        private void LoadSPPlusImmediateIntoHL()
+        {
+            var left = Registers.SP;
+            var right = (sbyte)_bus.Read(Registers.PC++);
+
+            var result = left + right;
+
+            UnsetFlag(Flags.Zero);
+            UnsetFlag(Flags.Subtract);
+
+            if(right >= 0)
+            {
+                UpdateFlag(Flags.Carry, (left & 0xff) + right > 0xff);
+                UpdateFlag(Flags.HalfCarry, (left & 0xf) + (right & 0xf) > 0xf);
+            }
+            else
+            {
+                UpdateFlag(Flags.Carry, (result & 0xff) <= (left & 0xff));
+                UpdateFlag(Flags.HalfCarry, (result & 0xf) <= (left & 0xf));
+            }
+
+            Registers.HL = (ushort)(result & 0xffff);
+        }
+
         private void Return() =>
             Pop(Register16.PC)();
 
         private Action ReturnConditional(Flags flag, bool invert) => () =>
         {
             if (GetFlag(flag) != invert)
-            {
                 Pop(Register16.PC)();
-            }
         };
 
         private void ReturnWithInterruptsEnabled()
